@@ -29,7 +29,7 @@ jobs:
     if: needs.release.outputs.release_created
     steps:
       - uses: actions/checkout@v3
-      - uses: ./.github/actions/node-env
+      - uses: ./.github/actions/setup-nvm
       - run: npm ci
       - run: npm run test:coverage
       - uses: codacy/codacy-coverage-reporter-action@v1
@@ -42,7 +42,7 @@ jobs:
     needs: test-coverage
     steps:
       - uses: actions/checkout@v3
-      - uses: ./.github/actions/node-env
+      - uses: ./.github/actions/setup-nvm
       - run: npm ci
       - run: npm run build
       - uses: FrontEndDev-org/publish-node-package-action@v1
@@ -58,7 +58,7 @@ jobs:
     needs: test-coverage
     steps:
       - uses: actions/checkout@v3
-      - uses: ./.github/actions/node-env
+      - uses: ./.github/actions/setup-nvm
       - run: npm ci
       - run: npm run build
       - uses: FrontEndDev-org/publish-node-package-action@v1
