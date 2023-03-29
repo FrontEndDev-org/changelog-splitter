@@ -1,10 +1,10 @@
 {
   "name": "changelog-splitter",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "✂️ conventional commit changelog markdown splitter 约定式提交更新日志 markdown 切割器",
   "scripts": {
     "prepare": "husky install",
-    "lint": "eslint src/**/*.ts && tsc --project tsconfig.json --noEmit",
+    "lint": "eslint src/**/*.ts test/**/*.ts && tsc --project tsconfig.json --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "build:types": "rm -rf dist-dts && tsc --project tsconfig.types.json",
@@ -47,11 +47,15 @@
   "homepage": "https://github.com/FrontEndDev-org/changelog-splitter",
   "repository": "https://github.com/FrontEndDev-org/changelog-splitter",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "chalk": "^4.1.2"
+  },
   "devDependencies": {
     "@commitlint/cli": "^17.4.4",
     "@commitlint/config-conventional": "^17.4.4",
     "@commitlint/types": "^17.4.4",
+    "@rollup/plugin-json": "^6.0.0",
+    "@rollup/plugin-replace": "^5.0.2",
     "@rollup/plugin-typescript": "^11.0.0",
     "@types/node": "^18.15.7",
     "@types/prettier": "^2.7.2",
