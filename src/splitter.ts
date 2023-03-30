@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { currentMajor, generatedSeparator, generatedSeparatorRE, pkgName, pkgVersion } from './const';
 import { RuntimeConfig } from './types';
-import { ensureFilePath, matchPrevious, matchVersion, pipeFile, readFileLineByLine } from './utils';
+import { ensureFileDirname, matchPrevious, matchVersion, pipeFile, readFileLineByLine } from './utils';
 
 export async function split(config: RuntimeConfig) {
   const { cwd, previousVersionFileTitle, targetFile, sourceFile, previousVersionLinkTitle } = config;
@@ -19,7 +19,12 @@ export async function split(config: RuntimeConfig) {
     const isCurrentMajor = major === currentMajor;
     const filePath = isCurrentMajor ? currentMajorChangelogPath : resolvePath(targetFile.replace('[major]', major));
 
-    ensureFilePath(filePath, !processedFileByMajor[major]);
+    ensureFileDirname(filePath);
+
+    // 第一次处理，清空其本身内容
+    if (!processedFileByMajor[major]) {
+      fs.writeFileSync(filePath, '');
+    }
 
     // 未处理过的大版本 && 不是当前版本 = 第一次处理旧版本更新日志
     if (!processedFileByMajor[major] && !isCurrentMajor) {
