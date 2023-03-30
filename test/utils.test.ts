@@ -3,7 +3,7 @@ import path from 'path';
 import { expect, test } from 'vitest';
 import {
   countFileLines,
-  ensureFileDirname,
+  createTempDirname,
   matchMajor,
   matchPrevious,
   matchVersion,
@@ -21,6 +21,7 @@ test('matchMajor', () => {
 
 test('matchVersion', () => {
   expect(matchVersion('')).toBeUndefined();
+  expect(matchVersion('# balabala')).toBeUndefined();
   expect(matchVersion('# [12.34.56](L) T (D)')).toEqual({
     name: '12.34.56',
     major: '12',
@@ -74,10 +75,9 @@ test('matchPrevious', () => {
   });
 });
 
-test('ensureFilePath', () => {
-  const f = path.join(__dirname, '../dist-test', Math.random().toString(), '1.txt');
-  ensureFileDirname(f);
-  expect(fs.existsSync(path.dirname(f))).toBeTruthy();
+test('createTempDirname', () => {
+  const d = createTempDirname();
+  expect(fs.existsSync(d)).toBeTruthy();
 });
 
 test('readFileLineByLine', async () => {
