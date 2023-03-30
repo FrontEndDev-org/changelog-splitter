@@ -1,6 +1,8 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import readline from 'readline';
+import { pkgName, pkgVersion } from './const';
 
 /**
  * 匹配版本号中的主版本号
@@ -13,7 +15,7 @@ export function matchMajor(version: string) {
 
 /**
  * 从 markdown 中匹配版本标题，例如
- * ## [12.34.56](http://example.com) A new version (2022-11-22)
+ * "## [12.34.56](http://example.com) A new version (2022-11-22)"
  * @param {string} line
  * @returns {{date: string, major: string, name: string, link: string, title: string}}
  */
@@ -29,6 +31,8 @@ export function matchVersion(line: string) {
   const nameLink = matches[1].match(/\[(.*?)]\((.*?)\)/);
   const name = nameLink ? nameLink[1] : matches[1];
   const major = matchMajor(name);
+
+  if (!major) return;
 
   return {
     name,
@@ -59,18 +63,6 @@ export function matchPrevious(line: string) {
     major,
     link: matches[2],
   };
-}
-
-/**
- * 确保生成文件所在的路径
- * @param {string} file
- */
-export function ensureFileDirname(file: string) {
-  const dirname = path.dirname(file);
-
-  if (fs.existsSync(dirname)) return;
-
-  fs.mkdirSync(dirname, { recursive: true });
 }
 
 /**
@@ -114,4 +106,14 @@ export async function pipeFile(source: string, target: string) {
     const ws = fs.createWriteStream(target);
     rs.pipe(ws).on('error', reject).on('close', resolve);
   });
+}
+
+/**
+ * 创建临时目录【必存在】
+ * @returns {string}
+ */
+export function createTempDirname() {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), pkgName, pkgVersion) + '/');
+  fs.mkdirSync(d, { recursive: true });
+  return d;
 }

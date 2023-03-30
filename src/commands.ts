@@ -1,11 +1,11 @@
 import chalk from 'chalk';
 import process from 'process';
 import { defineConfig } from './config';
-import { split } from './splitter';
+import { splitCurrentChangelog } from './splitter';
 
 export function run() {
   const config = defineConfig();
-  split(config)
+  splitCurrentChangelog(config)
     .then(() => {
       process.exit(0);
     })

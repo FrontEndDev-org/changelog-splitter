@@ -1,25 +1,37 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
-import { currentMajor, generatedSeparator, generatedSeparatorRE, pkgName, pkgVersion } from './const';
-import { RuntimeConfig } from './types';
-import { ensureFileDirname, matchPrevious, matchVersion, pipeFile, readFileLineByLine } from './utils';
+import { generatedSeparator, generatedSeparatorRE } from './const';
+import { RuntimeConfig, SplitResult } from './types';
+import { matchPrevious, matchVersion, pipeFile, readFileLineByLine } from './utils';
 
-export async function split(config: RuntimeConfig) {
-  const { cwd, previousVersionFileTitle, targetFile, sourceFile, previousVersionLinkTitle } = config;
-  const resolvePath = (...p: string[]): string => path.resolve(cwd, ...p);
-  const sourcePath = resolvePath(sourceFile);
-  const currentMajorChangelogPath = path.join(os.tmpdir(), pkgName, pkgVersion, `CHANGELOG-${Date.now()}.md`);
+/**
+ * 分离当前更新日志
+ * @param {RuntimeConfig} config
+ * @returns {Promise<void>}
+ */
+export async function splitCurrentChangelog(config: RuntimeConfig): Promise<SplitResult> {
+  const {
+    previousVersionChangelogTitle,
+    previousVersionChangelogFileName,
+    resolvePath,
+    currentChangelogFilePath,
+    currentMajor,
+    currentMajorChangelogFilePath,
+  } = config;
 
-  // 当前正在处理文件
-  const processedFileByMajor: { [major: string]: string } = {};
-  const blankLengthByMajor: { [major: string]: number } = {};
+  const splitResult: SplitResult = {
+    processedFileByMajor: {},
+    blankLengthByMajor: {},
+  };
+  const { processedFileByMajor, blankLengthByMajor } = splitResult;
 
   const appendFile = (major: string, line: string) => {
     const isCurrentMajor = major === currentMajor;
-    const filePath = isCurrentMajor ? currentMajorChangelogPath : resolvePath(targetFile.replace('[major]', major));
+    const filePath = isCurrentMajor
+      ? currentMajorChangelogFilePath
+      : resolvePath(previousVersionChangelogFileName.replace('[major]', major));
 
-    ensureFileDirname(filePath);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
     // 第一次处理，清空其本身内容
     if (!processedFileByMajor[major]) {
@@ -31,8 +43,8 @@ export async function split(config: RuntimeConfig) {
       fs.writeFileSync(filePath, `${generatedSeparator}\n\n`);
 
       // 旧版本标题
-      if (previousVersionFileTitle) {
-        const titleText = previousVersionFileTitle.replace('[major]', major);
+      if (previousVersionChangelogTitle) {
+        const titleText = previousVersionChangelogTitle.replace('[major]', major);
         fs.appendFileSync(filePath, titleText + '\n\n');
       }
     }
@@ -59,7 +71,7 @@ export async function split(config: RuntimeConfig) {
   // ...
   // previousLink
 
-  await readFileLineByLine(sourcePath, async (line) => {
+  await readFileLineByLine(currentChangelogFilePath, async (line) => {
     const isPreviousBlock = generatedSeparatorRE.test(line);
 
     // 前版本块
@@ -96,8 +108,20 @@ export async function split(config: RuntimeConfig) {
     }
   });
 
+  return splitResult;
+}
+
+/**
+ * 引用之前的更新日志链接
+ * @param {RuntimeConfig} config
+ * @param {SplitResult} splitResult
+ */
+export async function referPreviousChangelog(config: RuntimeConfig, splitResult: SplitResult) {
+  const { currentMajorChangelogFilePath, currentMajor, previousVersionLinkTitle, currentChangelogFilePath } = config;
+  const { processedFileByMajor, blankLengthByMajor } = splitResult;
+
   // 当前版本没有更新日志
-  if (!fs.existsSync(currentMajorChangelogPath)) return;
+  if (!fs.existsSync(currentMajorChangelogFilePath)) return;
 
   const prevVersions = Object.keys(processedFileByMajor)
     .filter((v) => v !== currentMajor)
@@ -105,21 +129,21 @@ export async function split(config: RuntimeConfig) {
     .sort((a, b) => b - a);
 
   if (!blankLengthByMajor[currentMajor]) {
-    fs.appendFileSync(currentMajorChangelogPath, `\n\n`);
+    fs.appendFileSync(currentMajorChangelogFilePath, `\n\n`);
   }
 
-  fs.appendFileSync(currentMajorChangelogPath, `${generatedSeparator}\n\n`);
-  fs.appendFileSync(currentMajorChangelogPath, `${previousVersionLinkTitle}\n`);
+  fs.appendFileSync(currentMajorChangelogFilePath, `${generatedSeparator}\n\n`);
+  fs.appendFileSync(currentMajorChangelogFilePath, `${previousVersionLinkTitle}\n`);
 
   // 链接其他版本
-  const fromDir = path.dirname(sourcePath);
+  const fromDir = path.dirname(currentChangelogFilePath);
   prevVersions.forEach((v) => {
     const filePath = processedFileByMajor[v];
     const relativePath = path.relative(fromDir, filePath);
-    fs.appendFileSync(currentMajorChangelogPath, `- [v${v}.x](${relativePath})\n`);
+    fs.appendFileSync(currentMajorChangelogFilePath, `- [v${v}.x](${relativePath})\n`);
   });
 
-  fs.appendFileSync(currentMajorChangelogPath, '\n');
+  fs.appendFileSync(currentMajorChangelogFilePath, '\n');
 
-  await pipeFile(currentMajorChangelogPath, sourcePath);
+  await pipeFile(currentMajorChangelogFilePath, currentChangelogFilePath);
 }

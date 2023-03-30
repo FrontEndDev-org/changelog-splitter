@@ -1,19 +1,16 @@
 import fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
-import { pkgName, pkgVersion } from '../src/const';
-import { ensureFileDirname } from '../src/utils';
+import { createTempDirname } from '../src/utils';
 
 /**
  * 创建临时文件
  * @param {string} content
  * @returns {[string, (() => void)]}
  */
-export function createTempFile(content = ''): [string, () => void] {
+export function createTempFile(content = ''): [string, () => void, () => string] {
   const fileName = Math.random().toString(36) + '.txt';
-  const filePath = path.join(os.tmpdir(), pkgName, pkgVersion, fileName);
+  const filePath = path.join(createTempDirname(), fileName);
 
-  ensureFileDirname(filePath);
   fs.writeFileSync(filePath, content, 'utf8');
 
   return [
@@ -21,11 +18,8 @@ export function createTempFile(content = ''): [string, () => void] {
     function clean() {
       fs.unlinkSync(filePath);
     },
+    function read() {
+      return fs.readFileSync(filePath, 'utf8');
+    },
   ];
-}
-
-export function wait(wait = 10) {
-  return new Promise<void>((resolve) => {
-    setTimeout(() => resolve, wait);
-  });
 }
