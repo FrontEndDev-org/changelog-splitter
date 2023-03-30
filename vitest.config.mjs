@@ -1,7 +1,12 @@
 import { defineConfig } from 'vitest/config';
+import pkg from './package.json' assert { type: 'json' };
 
 export default defineConfig({
   test: {
+    env: {
+      PKG_NAME: pkg.name,
+      PKG_VERSION: pkg.version,
+    },
     include: ['test/**/*.test.ts'],
     coverage: {
       include: ['src/**/*.ts'],

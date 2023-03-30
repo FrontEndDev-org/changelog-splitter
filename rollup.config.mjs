@@ -25,8 +25,8 @@ export default {
   plugins: [
     json(),
     replace({
-      PKG_NAME: JSON.stringify(pkg.name),
-      PKG_VERSION: JSON.stringify(pkg.version),
+      'process.env.PKG_NAME': JSON.stringify(pkg.name),
+      'process.env.PKG_VERSION': JSON.stringify(pkg.version),
     }),
     typescript({
       tsconfig: 'tsconfig.json',
