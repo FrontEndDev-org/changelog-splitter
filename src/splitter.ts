@@ -1,8 +1,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { RuntimeConfig } from './config';
 import { generatedSeparator, generatedSeparatorRE } from './const';
-import { RuntimeConfig, SplitResult } from './types';
 import { matchPrevious, matchVersion, pipeFile, readFileLineByLine } from './utils';
+
+export interface SplitResult {
+  /**
+   * 已经处理的主版本号与文件的映射表
+   */
+  processedFileByMajor: { [major: string]: string };
+
+  /**
+   * 主版本更新日志末尾的连续空白长度
+   */
+  blankLengthByMajor: { [major: string]: number };
+}
 
 /**
  * 分离当前更新日志
@@ -16,7 +28,7 @@ export async function splitCurrentChangelog(config: RuntimeConfig): Promise<Spli
     resolvePath,
     currentChangelogFilePath,
     currentMajor,
-    currentMajorChangelogFilePath,
+    currentVersionChangeTempFilePath,
   } = config;
 
   const splitResult: SplitResult = {
@@ -25,10 +37,10 @@ export async function splitCurrentChangelog(config: RuntimeConfig): Promise<Spli
   };
   const { processedFileByMajor, blankLengthByMajor } = splitResult;
 
-  const appendFile = (major: string, line: string) => {
+  const process = (major: string, line: string) => {
     const isCurrentMajor = major === currentMajor;
     const filePath = isCurrentMajor
-      ? currentMajorChangelogFilePath
+      ? currentVersionChangeTempFilePath
       : resolvePath(previousVersionChangelogFileName.replace('[major]', major));
 
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -96,15 +108,15 @@ export async function splitCurrentChangelog(config: RuntimeConfig): Promise<Spli
     // 版本开始
     if (version) {
       processingMajor = version.major;
-      appendFile(processingMajor, line);
+      process(processingMajor, line);
     }
     // 版本区
     else if (processingMajor) {
-      appendFile(processingMajor, line);
+      process(processingMajor, line);
     }
     // 标题块
     else {
-      appendFile(currentMajor, line);
+      process(currentMajor, line);
     }
   });
 
@@ -117,33 +129,43 @@ export async function splitCurrentChangelog(config: RuntimeConfig): Promise<Spli
  * @param {SplitResult} splitResult
  */
 export async function referPreviousChangelog(config: RuntimeConfig, splitResult: SplitResult) {
-  const { currentMajorChangelogFilePath, currentMajor, previousVersionLinkTitle, currentChangelogFilePath } = config;
+  const { currentVersionChangeTempFilePath, currentMajor, previousVersionLinkTitle, currentVersionChangeFilePath } =
+    config;
+
   const { processedFileByMajor, blankLengthByMajor } = splitResult;
-
-  // 当前版本没有更新日志
-  if (!fs.existsSync(currentMajorChangelogFilePath)) return;
-
   const prevVersions = Object.keys(processedFileByMajor)
     .filter((v) => v !== currentMajor)
     .map((v) => parseInt(v, 10))
     .sort((a, b) => b - a);
 
-  if (!blankLengthByMajor[currentMajor]) {
-    fs.appendFileSync(currentMajorChangelogFilePath, `\n\n`);
+  // 需要链接其他版本
+  if (prevVersions.length > 0) {
+    // 通常是存在的，为了便于单元测试时不存在
+    if (!fs.existsSync(currentVersionChangeTempFilePath)) {
+      fs.mkdirSync(path.dirname(currentVersionChangeTempFilePath), { recursive: true });
+    }
+
+    if (!blankLengthByMajor[currentMajor]) {
+      fs.appendFileSync(currentVersionChangeTempFilePath, `\n\n`);
+    }
+
+    fs.appendFileSync(currentVersionChangeTempFilePath, `${generatedSeparator}\n\n`);
+    fs.appendFileSync(currentVersionChangeTempFilePath, `${previousVersionLinkTitle}\n`);
+
+    const currentDir = path.dirname(currentVersionChangeFilePath);
+    prevVersions.forEach((v) => {
+      const filePath = processedFileByMajor[v];
+      const relativePath = path.relative(currentDir, filePath);
+      fs.appendFileSync(currentVersionChangeTempFilePath, `- [v${v}.x](${relativePath})\n`);
+    });
+
+    fs.appendFileSync(currentVersionChangeTempFilePath, '\n');
   }
 
-  fs.appendFileSync(currentMajorChangelogFilePath, `${generatedSeparator}\n\n`);
-  fs.appendFileSync(currentMajorChangelogFilePath, `${previousVersionLinkTitle}\n`);
-
-  // 链接其他版本
-  const fromDir = path.dirname(currentChangelogFilePath);
-  prevVersions.forEach((v) => {
-    const filePath = processedFileByMajor[v];
-    const relativePath = path.relative(fromDir, filePath);
-    fs.appendFileSync(currentMajorChangelogFilePath, `- [v${v}.x](${relativePath})\n`);
-  });
-
-  fs.appendFileSync(currentMajorChangelogFilePath, '\n');
-
-  await pipeFile(currentMajorChangelogFilePath, currentChangelogFilePath);
+  // 通常是存在的，为了便于单元测试时不存在
+  if (fs.existsSync(currentVersionChangeTempFilePath)) {
+    // 复制当前大版本的更新日志临时文件回原地
+    await pipeFile(currentVersionChangeTempFilePath, currentVersionChangeFilePath);
+    fs.rmSync(currentVersionChangeTempFilePath);
+  }
 }

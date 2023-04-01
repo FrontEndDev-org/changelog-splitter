@@ -101,7 +101,7 @@ export async function countFileLines(filePath: string): Promise<number> {
  * @returns {Promise<unknown>}
  */
 export async function pipeFile(source: string, target: string) {
-  return new Promise((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     const rs = fs.createReadStream(source);
     const ws = fs.createWriteStream(target);
     rs.pipe(ws).on('error', reject).on('close', resolve);
