@@ -10,7 +10,7 @@ import {
   pipeFile,
   readFileLineByLine,
 } from '../src/utils';
-import { createTempFile } from './utils';
+import { createTempFile } from './helpers';
 
 test('matchMajor', () => {
   expect(matchMajor('0')).toEqual('0');
