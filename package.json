@@ -4,7 +4,7 @@
   "description": "✂️ conventional commit changelog markdown splitter 约定式提交更新日志 markdown 切割器",
   "scripts": {
     "prepare": "husky install",
-    "lint": "eslint src/**/*.ts test/**/*.ts && tsc --project tsconfig.json --noEmit",
+    "lint": "eslint --ext=.cjs,.mjs,.ts,.tsx src/ test/ && tsc --project tsconfig.json --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "build:types": "rm -rf dist-dts && tsc --project tsconfig.types.json",
