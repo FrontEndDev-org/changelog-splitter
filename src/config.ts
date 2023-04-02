@@ -4,6 +4,14 @@ import { tryFlatten } from 'try-flatten';
 import { ConfigFault } from './fault';
 import { createTempDirname, matchMajor } from './utils';
 
+export enum ConflictStrategy {
+  // 选择当前正在处理的文件
+  ProcessingFile,
+
+  // 选择已经处理过的文件
+  ProcessedFile,
+}
+
 export interface UserConfig {
   /**
    * 工作目录
@@ -33,6 +41,11 @@ export interface UserConfig {
    * @default "changelogs/v[major].x.md"
    */
   previousVersionChangelogFileName?: string;
+
+  /**
+   * 其他版本更新日志文件冲突处理策略，默认选择当前配置的文件
+   */
+  previousVersionChangelogConflictStrategy?: ConflictStrategy;
 
   /**
    * 其他版本更新日志的标题，可以使用 `[major]` 表示大版本号
@@ -100,6 +113,7 @@ export const defaults: StrictUserConfig = {
   currentVersionChangeFileName: 'CHANGELOG.md',
   packageFile: 'package.json',
   previousVersionChangelogFileName: 'changelogs/v[major].x.md',
+  previousVersionChangelogConflictStrategy: ConflictStrategy.ProcessingFile,
   previousVersionChangelogTitle: '# v[major].x 更新日志',
   previousVersionLinkTitle: '## 其他版本的更新日志',
   processVersion: () => 0,

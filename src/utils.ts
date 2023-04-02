@@ -95,7 +95,7 @@ export async function countFileLines(filePath: string): Promise<number> {
 }
 
 /**
- * 流式复制文件
+ * 流式复制文件，会覆盖目标文件
  * @param {string} source
  * @param {string} target
  * @returns {Promise<unknown>}

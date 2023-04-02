@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { RuntimeConfig } from './config';
+import { ConflictStrategy, RuntimeConfig } from './config';
 import { generatedSeparator, generatedSeparatorRE } from './const';
 import { matchPrevious, matchVersion, pipeFile, readFileLineByLine } from './utils';
 
@@ -25,6 +25,7 @@ export async function splitCurrentChangelog(config: RuntimeConfig): Promise<Spli
   const {
     previousVersionChangelogTitle,
     previousVersionChangelogFileName,
+    previousVersionChangelogConflictStrategy,
     resolvePath,
     currentChangelogFilePath,
     currentMajor,
@@ -92,12 +93,30 @@ export async function splitCurrentChangelog(config: RuntimeConfig): Promise<Spli
       return;
     }
 
-    // 处理前版本引用链接
+    // 处理前版本引用链接，此时已经处理过更新日志中的所有版本了
     if (processingPrevious) {
       const previous = matchPrevious(line);
 
-      if (previous && !processedFileByMajor[previous.major]) {
-        processedFileByMajor[previous.major] = resolvePath(previous.link);
+      if (!previous) return;
+
+      // 旧文件
+      const processedFile = resolvePath(previous.link);
+      // 新文件
+      const processingFile = processedFileByMajor[previous.major];
+
+      // 存在两份文件
+      if (processingFile) {
+        // 选择旧文件
+        if (previousVersionChangelogConflictStrategy === ConflictStrategy.ProcessedFile) {
+          processedFileByMajor[previous.major] = processedFile;
+          // TODO pipe 是追加的吗？
+        }
+        // 选项新文件
+        else {
+          // processedFileByMajor[previous.major] = '';
+        }
+      } else {
+        processedFileByMajor[previous.major] = processedFile;
       }
 
       return;

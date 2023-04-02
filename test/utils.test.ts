@@ -109,12 +109,26 @@ test('countFileLines', async () => {
 test('pipeFile', async () => {
   const length = Math.floor(Math.random() * 50) + 10;
   const content = '\n'.repeat(length);
-  const [source, clean] = createTempFile(content);
+  const [source, clean1] = createTempFile(content);
   const [target, clean2] = createTempFile();
   await pipeFile(source, target);
   const st1 = fs.statSync(source);
   const st2 = fs.statSync(target);
   expect(st1.size).toEqual(st2.size);
-  clean();
+  clean1();
+  clean2();
+});
+
+test('pipeFile exitFile', async () => {
+  const length = Math.floor(Math.random() * 50) + 10;
+  const content1 = '1\n'.repeat(length);
+  const content2 = '2\n'.repeat(length);
+  const [source, clean1] = createTempFile(content1);
+  const [target, clean2] = createTempFile(content2);
+  await pipeFile(source, target);
+  const st1 = fs.statSync(source);
+  const st2 = fs.statSync(target);
+  expect(st1.size).toEqual(st2.size);
+  clean1();
   clean2();
 });
