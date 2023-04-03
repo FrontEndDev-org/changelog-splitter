@@ -14,6 +14,8 @@ import {
 } from './utils';
 
 export interface SplitResult {
+  runtimeConfig: RuntimeConfig;
+
   /**
    * 已经处理的主版本号与文件的映射表
    */
@@ -23,14 +25,19 @@ export interface SplitResult {
    * 主版本更新日志末尾的连续空白长度
    */
   blankLengthByMajor: { [major: string]: number };
+
+  /**
+   * 由于冲突策略导致的废弃文件
+   */
+  deprecatedMajorFiles: { [major: string]: string };
 }
 
 /**
  * 分离当前更新日志
- * @param {RuntimeConfig} config
+ * @param {RuntimeConfig} runtimeConfig
  * @returns {Promise<void>}
  */
-export async function splitCurrentChangelog(config: RuntimeConfig): Promise<SplitResult> {
+export async function splitCurrentChangelog(runtimeConfig: RuntimeConfig): Promise<SplitResult> {
   const {
     previousVersionChangelogTitle,
     previousVersionChangelogFileName,
@@ -39,13 +46,15 @@ export async function splitCurrentChangelog(config: RuntimeConfig): Promise<Spli
     currentChangelogFilePath,
     currentMajor,
     currentVersionChangeTempFilePath,
-  } = config;
+  } = runtimeConfig;
 
   const splitResult: SplitResult = {
+    runtimeConfig,
     processedFileByMajor: {},
     blankLengthByMajor: {},
+    deprecatedMajorFiles: {},
   };
-  const { processedFileByMajor, blankLengthByMajor } = splitResult;
+  const { processedFileByMajor, blankLengthByMajor, deprecatedMajorFiles } = splitResult;
 
   const process = (major: string, line: string) => {
     const isCurrentMajor = major === currentMajor;
@@ -140,10 +149,12 @@ export async function splitCurrentChangelog(config: RuntimeConfig): Promise<Spli
           tempFile
         );
         await pipeFile(tempFile, acceptedFile);
+        if (processedFile !== acceptedFile) deprecatedMajorFiles[major] = processedFile;
       }
       // 只有旧文件
       else if (existProcessedFile) {
         await pipeFile(processedFile, acceptedFile);
+        if (processedFile !== acceptedFile) deprecatedMajorFiles[major] = processedFile;
       } else {
         throw new SplitFault('LINK_CHANGELOG_NOT_FOUND', `链接的更新日志文件不存在 ${processedFile}`);
       }
@@ -173,12 +184,12 @@ export async function splitCurrentChangelog(config: RuntimeConfig): Promise<Spli
 
 /**
  * 引用之前的更新日志链接
- * @param {RuntimeConfig} config
+ * @param {RuntimeConfig} runtimeConfig
  * @param {SplitResult} splitResult
  */
-export async function referPreviousChangelog(config: RuntimeConfig, splitResult: SplitResult) {
+export async function referPreviousChangelog(runtimeConfig: RuntimeConfig, splitResult: SplitResult) {
   const { currentVersionChangeTempFilePath, currentMajor, previousVersionLinkTitle, currentVersionChangeFilePath } =
-    config;
+    runtimeConfig;
 
   const { processedFileByMajor, blankLengthByMajor } = splitResult;
   const prevVersions = Object.keys(processedFileByMajor)
@@ -222,4 +233,5 @@ export async function splitChangelog(config: StrictUserConfig) {
   const runtimeConfig = createRuntimeConfig(config);
   const result = await splitCurrentChangelog(runtimeConfig);
   await referPreviousChangelog(runtimeConfig, result);
+  return result;
 }

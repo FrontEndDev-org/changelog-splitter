@@ -3,12 +3,8 @@ import path from 'path';
 import { describe, expect, test } from 'vitest';
 import { defineConfig } from '../src';
 import { ConflictStrategy, createRuntimeConfig } from '../src/config';
-import { splitCurrentChangelog, SplitResult } from '../src/splitter';
-import { ChangelogFolder, makeChangelogCwd } from './helpers';
-
-function readSplitResultFile(splitResult: SplitResult, major: string) {
-  return fs.readFileSync(splitResult.processedFileByMajor[major], 'utf8');
-}
+import { splitCurrentChangelog } from '../src/splitter';
+import { ChangelogFolder, makeChangelogCwd, readSplitResultFile } from './helpers';
 
 test(ChangelogFolder.EmptyVersions, async () => {
   const [cwd, clean] = makeChangelogCwd(ChangelogFolder.EmptyVersions);
@@ -113,6 +109,9 @@ describe(ChangelogFolder.HasRefVersions, () => {
 
     expect(result.processedFileByMajor[14]).toEqual(path.join(config.cwd, 'changelogs/v14.x-CHANGELOG.md'));
     expect(readSplitResultFile(result, '14')).toMatchSnapshot();
+    expect(Object.keys(result.deprecatedMajorFiles)).toEqual(['9', '14']);
+    expect(result.deprecatedMajorFiles[9]).toEqual(path.join(config.cwd, 'v9-old.md'));
+    expect(result.deprecatedMajorFiles[14]).toEqual(path.join(config.cwd, 'v10-old.md'));
 
     clean();
   });
@@ -130,8 +129,9 @@ describe(ChangelogFolder.HasRefVersions, () => {
     fs.writeFileSync(config.currentChangelogFilePath, changelog.replace('[v10.x]', '[v14.x]'));
     const result = await splitCurrentChangelog(config);
 
-    expect(result.processedFileByMajor[14]).toEqual(path.join(config.cwd, '456.md'));
+    expect(result.processedFileByMajor[14]).toEqual(path.join(config.cwd, 'v10-old.md'));
     expect(readSplitResultFile(result, '14')).toMatchSnapshot();
+    expect(Object.keys(result.deprecatedMajorFiles)).toEqual([]);
 
     clean();
   });

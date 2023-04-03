@@ -178,6 +178,6 @@ b
 `;
 
 exports[`5-has-ref-versions > normal 5`] = `
-"10.x changelog
+"9.x changelog
 "
 `;
