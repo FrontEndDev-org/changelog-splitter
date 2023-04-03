@@ -1,8 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { expect, test, describe } from 'vitest';
-import { createRuntimeConfig, defineConfig, splitCurrentChangelog, SplitResult } from '../src';
+import { defineConfig } from '../src';
+import { createRuntimeConfig } from '../src/config';
+import { splitCurrentChangelog, SplitResult } from '../src/splitter';
 import { createTempDirname } from '../src/utils';
+import { ChangelogFolder, makeChangelogCwd } from './helpers';
 
 // test/changelogs
 const testChangelogsPath = path.join(__dirname, 'changelogs');
@@ -11,12 +14,11 @@ function readSplitResultFile(splitResult: SplitResult, major: string) {
   return fs.readFileSync(splitResult.processedFileByMajor[major], 'utf8');
 }
 
-test('1-empty-versions', async () => {
-  const tmpDirname = createTempDirname();
+test(ChangelogFolder.EmptyVersions, async () => {
+  const cwd = makeChangelogCwd(ChangelogFolder.EmptyVersions);
   const config = createRuntimeConfig(
     defineConfig({
-      cwd: path.join(testChangelogsPath, '1-empty-versions'),
-      previousVersionChangelogFileName: path.join(tmpDirname, '[major].md'),
+      cwd,
     })
   );
   const currentChangelogOrigin = fs.readFileSync(config.currentChangelogFilePath, 'utf8');
@@ -27,12 +29,11 @@ test('1-empty-versions', async () => {
   expect(Object.keys(result.processedFileByMajor)).toEqual([]);
 });
 
-test('2-only-current-version', async () => {
-  const tmpDirname = createTempDirname();
+test(ChangelogFolder.OnlyCurrentVersion, async () => {
+  const cwd = makeChangelogCwd(ChangelogFolder.OnlyCurrentVersion);
   const config = createRuntimeConfig(
     defineConfig({
-      cwd: path.join(testChangelogsPath, '2-only-current-version'),
-      previousVersionChangelogFileName: path.join(tmpDirname, '[major].md'),
+      cwd,
     })
   );
   const currentChangelogOrigin = fs.readFileSync(config.currentChangelogFilePath, 'utf8');
@@ -44,12 +45,11 @@ test('2-only-current-version', async () => {
   expect(readSplitResultFile(result, '2')).toMatchSnapshot();
 });
 
-test('3-not-current-version', async () => {
-  const tmpDirname = createTempDirname();
+test(ChangelogFolder.NotCurrentVersion, async () => {
+  const cwd = makeChangelogCwd(ChangelogFolder.NotCurrentVersion);
   const config = createRuntimeConfig(
     defineConfig({
-      cwd: path.join(testChangelogsPath, '3-not-current-version'),
-      previousVersionChangelogFileName: path.join(tmpDirname, '[major].md'),
+      cwd,
     })
   );
   const result = await splitCurrentChangelog(config);
@@ -59,12 +59,11 @@ test('3-not-current-version', async () => {
   expect(readSplitResultFile(result, '3')).toMatchSnapshot();
 });
 
-test('4-has-many-versions', async () => {
-  const tmpDirname = createTempDirname();
+test(ChangelogFolder.HasManyVersions, async () => {
+  const cwd = makeChangelogCwd(ChangelogFolder.HasManyVersions);
   const config = createRuntimeConfig(
     defineConfig({
-      cwd: path.join(testChangelogsPath, '4-has-many-versions'),
-      previousVersionChangelogFileName: path.join(tmpDirname, '[major].md'),
+      cwd,
     })
   );
   const result = await splitCurrentChangelog(config);
@@ -75,12 +74,11 @@ test('4-has-many-versions', async () => {
   expect(readSplitResultFile(result, '2')).toMatchSnapshot();
 });
 
-test('5-has-ref-versions', async () => {
-  const tmpDirname = createTempDirname();
+test(ChangelogFolder.HasRefVersions, async () => {
+  const cwd = makeChangelogCwd(ChangelogFolder.HasRefVersions);
   const config = createRuntimeConfig(
     defineConfig({
-      cwd: path.join(testChangelogsPath, '5-has-ref-versions'),
-      previousVersionChangelogFileName: path.join(tmpDirname, '[major].md'),
+      cwd,
     })
   );
   const result = await splitCurrentChangelog(config);

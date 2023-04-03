@@ -1,15 +1,17 @@
 import fs from 'fs';
 import path from 'path';
-import { expect, test, describe } from 'vitest';
-import { createRuntimeConfig, defineConfig, referPreviousChangelog, splitCurrentChangelog, SplitResult } from '../src';
+import { expect, test } from 'vitest';
+import { defineConfig } from '../src';
+import { createRuntimeConfig } from '../src/config';
+import { referPreviousChangelog, SplitResult } from '../src/splitter';
 import { createTempDirname } from '../src/utils';
+import { ChangelogFolder, makeChangelogCwd } from './helpers';
 
 // test/changelogs
 const testChangelogsPath = path.join(__dirname, 'changelogs');
 
-test('1-empty-versions', async () => {
-  const cwd = createTempDirname();
-  fs.cpSync(path.join(testChangelogsPath, '1-empty-versions'), cwd, { recursive: true });
+test(ChangelogFolder.EmptyVersions, async () => {
+  const cwd = makeChangelogCwd(ChangelogFolder.EmptyVersions);
   const config = createRuntimeConfig(
     defineConfig({
       cwd,
@@ -25,9 +27,8 @@ test('1-empty-versions', async () => {
   expect(fs.readFileSync(currentVersionChangeFilePath, 'utf8')).toMatchSnapshot();
 });
 
-test('2-only-current-version', async () => {
-  const cwd = createTempDirname();
-  fs.cpSync(path.join(testChangelogsPath, '2-only-current-version'), cwd, { recursive: true });
+test(ChangelogFolder.OnlyCurrentVersion, async () => {
+  const cwd = makeChangelogCwd(ChangelogFolder.OnlyCurrentVersion);
   const config = createRuntimeConfig(
     defineConfig({
       cwd,
@@ -45,9 +46,8 @@ test('2-only-current-version', async () => {
   expect(fs.readFileSync(currentVersionChangeFilePath, 'utf8')).toMatchSnapshot();
 });
 
-test('3-not-current-version', async () => {
-  const cwd = createTempDirname();
-  fs.cpSync(path.join(testChangelogsPath, '3-not-current-version'), cwd, { recursive: true });
+test(ChangelogFolder.NotCurrentVersion, async () => {
+  const cwd = makeChangelogCwd(ChangelogFolder.NotCurrentVersion);
   const config = createRuntimeConfig(
     defineConfig({
       cwd,
@@ -66,9 +66,29 @@ test('3-not-current-version', async () => {
   expect(fs.readFileSync(currentVersionChangeFilePath, 'utf8')).toMatchSnapshot();
 });
 
-test('4-has-many-versions', async () => {
-  const cwd = createTempDirname();
-  fs.cpSync(path.join(testChangelogsPath, '4-has-many-versions'), cwd, { recursive: true });
+test(ChangelogFolder.HasManyVersions, async () => {
+  const cwd = makeChangelogCwd(ChangelogFolder.HasManyVersions);
+  const config = createRuntimeConfig(
+    defineConfig({
+      cwd,
+    })
+  );
+  const { resolvePath, currentVersionChangeFilePath } = config;
+  const splitResult: SplitResult = {
+    processedFileByMajor: {
+      2: resolvePath('123.md'),
+      14: resolvePath('456.md'),
+      16: resolvePath('789.md'),
+    },
+    blankLengthByMajor: {},
+  };
+  await referPreviousChangelog(config, splitResult);
+  // 3 个引用链接
+  expect(fs.readFileSync(currentVersionChangeFilePath, 'utf8')).toMatchSnapshot();
+});
+
+test(ChangelogFolder.HasRefVersions, async () => {
+  const cwd = makeChangelogCwd(ChangelogFolder.HasRefVersions);
   const config = createRuntimeConfig(
     defineConfig({
       cwd,

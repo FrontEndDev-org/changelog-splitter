@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { ConflictStrategy, RuntimeConfig } from './config';
+import { ConflictStrategy, createRuntimeConfig, RuntimeConfig, StrictUserConfig } from './config';
 import { generatedSeparator, generatedSeparatorRE } from './const';
 import { matchPrevious, matchVersion, pipeFile, readFileLineByLine } from './utils';
 
@@ -99,24 +99,24 @@ export async function splitCurrentChangelog(config: RuntimeConfig): Promise<Spli
 
       if (!previous) return;
 
+      const { link, major } = previous;
       // 旧文件
-      const processedFile = resolvePath(previous.link);
+      const processedFile = resolvePath(link);
       // 新文件
-      const processingFile = processedFileByMajor[previous.major];
+      const processingFile = processedFileByMajor[major] || '';
 
       // 存在两份文件
       if (processingFile) {
         // 选择旧文件
         if (previousVersionChangelogConflictStrategy === ConflictStrategy.ProcessedFile) {
-          processedFileByMajor[previous.major] = processedFile;
-          // TODO pipe 是追加的吗？
+          processedFileByMajor[major] = processedFile;
         }
         // 选项新文件
         else {
           // processedFileByMajor[previous.major] = '';
         }
       } else {
-        processedFileByMajor[previous.major] = processedFile;
+        processedFileByMajor[major] = processedFile;
       }
 
       return;
@@ -187,4 +187,10 @@ export async function referPreviousChangelog(config: RuntimeConfig, splitResult:
     await pipeFile(currentVersionChangeTempFilePath, currentVersionChangeFilePath);
     fs.rmSync(currentVersionChangeTempFilePath);
   }
+}
+
+export async function splitChangelog(config: StrictUserConfig) {
+  const runtimeConfig = createRuntimeConfig(config);
+  const result = await splitCurrentChangelog(runtimeConfig);
+  await referPreviousChangelog(runtimeConfig, result);
 }

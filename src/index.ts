@@ -1,4 +1,3 @@
-export * from './commands';
-export * from './config';
-export * from './splitter';
-export * from './config';
+export { run } from './commands';
+export { defineConfig } from './config';
+export { splitChangelog } from './splitter';

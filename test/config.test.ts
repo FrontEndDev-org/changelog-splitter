@@ -1,7 +1,8 @@
 import path from 'path';
 import { tryFlatten } from 'try-flatten';
 import { describe, expect, test } from 'vitest';
-import { createRuntimeConfig, defaults, defineConfig } from '../src';
+import { defineConfig } from '../src';
+import { createRuntimeConfig, defaults } from '../src/config';
 import { ConfigFaultCode, ConfigFaultInstance } from '../src/fault';
 
 test('defineConfig', () => {

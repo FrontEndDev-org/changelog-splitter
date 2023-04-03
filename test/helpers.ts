@@ -23,3 +23,19 @@ export function createTempFile(content = ''): [string, () => void, () => string]
     },
   ];
 }
+
+export enum ChangelogFolder {
+  EmptyVersions = '1-empty-versions',
+  OnlyCurrentVersion = '2-only-current-version',
+  NotCurrentVersion = '3-not-current-version',
+  HasManyVersions = '4-has-many-versions',
+  HasRefVersions = '5-has-ref-versions',
+}
+
+export function makeChangelogCwd(folder: ChangelogFolder) {
+  // test/changelogs
+  const testChangelogsPath = path.join(__dirname, 'changelogs');
+  const cwd = createTempDirname();
+  fs.cpSync(path.join(testChangelogsPath, folder), cwd, { recursive: true });
+  return cwd;
+}
