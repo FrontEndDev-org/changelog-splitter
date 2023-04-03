@@ -117,3 +117,13 @@ export function createTempDirname() {
   fs.mkdirSync(d, { recursive: true });
   return d;
 }
+
+/**
+ * 根据主版本号生成实际字符串
+ * @param {string} templateName
+ * @param {string} major
+ * @returns {string}
+ */
+export function generateNameByMajor(templateName: string, major: string) {
+  return templateName.replace(/\[major]/g, major);
+}

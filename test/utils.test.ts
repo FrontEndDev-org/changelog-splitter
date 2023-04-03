@@ -4,6 +4,7 @@ import { expect, test } from 'vitest';
 import {
   countFileLines,
   createTempDirname,
+  generateNameByMajor,
   matchMajor,
   matchPrevious,
   matchVersion,
@@ -131,4 +132,8 @@ test('pipeFile exitFile', async () => {
   expect(st1.size).toEqual(st2.size);
   clean1();
   clean2();
+});
+
+test('generateNameByMajor', () => {
+  expect(generateNameByMajor('1-[major]-[major]-3', '2')).toEqual('1-2-2-3');
 });
