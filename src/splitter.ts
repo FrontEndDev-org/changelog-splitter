@@ -4,6 +4,7 @@ import { ConflictStrategy, createRuntimeConfig, RuntimeConfig, StrictUserConfig 
 import { generatedSeparator, generatedSeparatorRE } from './const';
 import { SplitFault } from './fault';
 import {
+  countFileLines,
   createTempFile,
   generateNameByMajor,
   matchPrevious,
@@ -13,9 +14,17 @@ import {
   readFileLineByLine,
 } from './utils';
 
-export interface SplitResult {
-  runtimeConfig: RuntimeConfig;
+export enum SplitStage {
+  Parse,
+  Refer,
+}
 
+export interface SplitInfo {
+  stage: SplitStage;
+  progress: number;
+}
+
+export interface SplitResult {
   /**
    * 已经处理的主版本号与文件的映射表
    */
@@ -32,12 +41,20 @@ export interface SplitResult {
   deprecatedMajorFiles: { [major: string]: string };
 }
 
+export function createSplitResult(): SplitResult {
+  return {
+    processedFileByMajor: {},
+    blankLengthByMajor: {},
+    deprecatedMajorFiles: {},
+  };
+}
+
 /**
  * 分离当前更新日志
  * @param {RuntimeConfig} runtimeConfig
  * @returns {Promise<void>}
  */
-export async function splitCurrentChangelog(runtimeConfig: RuntimeConfig): Promise<SplitResult> {
+export async function parseCurrentChangelog(runtimeConfig: RuntimeConfig): Promise<SplitResult> {
   const {
     previousVersionChangelogTitle,
     previousVersionChangelogFileName,
@@ -46,14 +63,10 @@ export async function splitCurrentChangelog(runtimeConfig: RuntimeConfig): Promi
     currentChangelogFilePath,
     currentMajor,
     currentVersionChangeTempFilePath,
+    onProcessing,
   } = runtimeConfig;
 
-  const splitResult: SplitResult = {
-    runtimeConfig,
-    processedFileByMajor: {},
-    blankLengthByMajor: {},
-    deprecatedMajorFiles: {},
-  };
+  const splitResult = createSplitResult();
   const { processedFileByMajor, blankLengthByMajor, deprecatedMajorFiles } = splitResult;
 
   const process = (major: string, line: string) => {
@@ -102,7 +115,15 @@ export async function splitCurrentChangelog(runtimeConfig: RuntimeConfig): Promi
   // ...
   // previousLink
 
+  const count = await countFileLines(currentChangelogFilePath);
+  let lines = 0;
   await readFileLineByLine(currentChangelogFilePath, async (line) => {
+    lines++;
+    onProcessing({
+      stage: SplitStage.Parse,
+      progress: lines / count,
+    });
+
     const isPreviousBlock = generatedSeparatorRE.test(line);
 
     // 前版本块
@@ -188,8 +209,13 @@ export async function splitCurrentChangelog(runtimeConfig: RuntimeConfig): Promi
  * @param {SplitResult} splitResult
  */
 export async function referPreviousChangelog(runtimeConfig: RuntimeConfig, splitResult: SplitResult) {
-  const { currentVersionChangeTempFilePath, currentMajor, previousVersionLinkTitle, currentVersionChangeFilePath } =
-    runtimeConfig;
+  const {
+    currentVersionChangeTempFilePath,
+    currentMajor,
+    previousVersionLinkTitle,
+    currentVersionChangeFilePath,
+    onProcessing,
+  } = runtimeConfig;
 
   const { processedFileByMajor, blankLengthByMajor } = splitResult;
   const prevVersions = Object.keys(processedFileByMajor)
@@ -198,7 +224,8 @@ export async function referPreviousChangelog(runtimeConfig: RuntimeConfig, split
     .sort((a, b) => b - a);
 
   // 需要链接其他版本
-  if (prevVersions.length > 0) {
+  const count = prevVersions.length;
+  if (count > 0) {
     // 通常是存在的，为了便于单元测试时不存在
     if (!fs.existsSync(currentVersionChangeTempFilePath)) {
       fs.mkdirSync(path.dirname(currentVersionChangeTempFilePath), { recursive: true });
@@ -212,7 +239,12 @@ export async function referPreviousChangelog(runtimeConfig: RuntimeConfig, split
     fs.appendFileSync(currentVersionChangeTempFilePath, `${previousVersionLinkTitle}\n`);
 
     const currentDir = path.dirname(currentVersionChangeFilePath);
-    prevVersions.forEach((v) => {
+    prevVersions.forEach((v, index) => {
+      onProcessing({
+        stage: SplitStage.Refer,
+        progress: (index + 1) / count,
+      });
+
       const filePath = processedFileByMajor[v];
       const relativePath = path.relative(currentDir, filePath);
       fs.appendFileSync(currentVersionChangeTempFilePath, `- [v${v}.x](${relativePath})\n`);
@@ -229,9 +261,14 @@ export async function referPreviousChangelog(runtimeConfig: RuntimeConfig, split
   }
 }
 
+/**
+ * 切割更新日志
+ * @param {StrictUserConfig} config
+ * @returns {Promise<{result: SplitResult, runtimeConfig: StrictUserConfig & ExtendConfig}>}
+ */
 export async function splitChangelog(config: StrictUserConfig) {
   const runtimeConfig = createRuntimeConfig(config);
-  const result = await splitCurrentChangelog(runtimeConfig);
+  const result = await parseCurrentChangelog(runtimeConfig);
   await referPreviousChangelog(runtimeConfig, result);
-  return result;
+  return { result, runtimeConfig };
 }

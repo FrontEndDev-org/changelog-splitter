@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import process from 'process';
 import { defineConfig } from './config';
-import { splitCurrentChangelog } from './splitter';
+import { parseCurrentChangelog } from './splitter';
 
 export function run() {
   // const config = defineConfig();

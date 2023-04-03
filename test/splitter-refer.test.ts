@@ -2,7 +2,7 @@ import fs from 'fs';
 import { expect, test } from 'vitest';
 import { defineConfig } from '../src';
 import { createRuntimeConfig } from '../src/config';
-import { referPreviousChangelog, SplitResult } from '../src/splitter';
+import { createSplitResult, referPreviousChangelog, SplitResult } from '../src/splitter';
 import { ChangelogFolder, makeChangelogCwd } from './helpers';
 
 test(ChangelogFolder.EmptyVersions, async () => {
@@ -13,10 +13,7 @@ test(ChangelogFolder.EmptyVersions, async () => {
     })
   );
   const { currentVersionChangeFilePath } = config;
-  const splitResult: SplitResult = {
-    processedFileByMajor: {},
-    blankLengthByMajor: {},
-  };
+  const splitResult = createSplitResult();
 
   await referPreviousChangelog(config, splitResult);
   expect(fs.readFileSync(currentVersionChangeFilePath, 'utf8')).toMatchSnapshot();
@@ -32,12 +29,11 @@ test(ChangelogFolder.OnlyCurrentVersion, async () => {
     })
   );
   const { currentMajor, resolvePath, currentVersionChangeFilePath } = config;
-  const splitResult: SplitResult = {
+  const splitResult = Object.assign(createSplitResult(), {
     processedFileByMajor: {
       [currentMajor]: resolvePath('123.md'),
     },
-    blankLengthByMajor: {},
-  };
+  });
   await referPreviousChangelog(config, splitResult);
   // 空
   expect(fs.readFileSync(currentVersionChangeFilePath, 'utf8')).toMatchSnapshot();
@@ -53,12 +49,11 @@ test(ChangelogFolder.NotCurrentVersion, async () => {
     })
   );
   const { resolvePath, currentVersionChangeFilePath } = config;
-  const splitResult: SplitResult = {
+  const splitResult = Object.assign(createSplitResult(), {
     processedFileByMajor: {
       2: resolvePath('123.md'),
     },
-    blankLengthByMajor: {},
-  };
+  });
 
   await referPreviousChangelog(config, splitResult);
   // 1 个引用链接
@@ -75,14 +70,13 @@ test(ChangelogFolder.HasManyVersions, async () => {
     })
   );
   const { resolvePath, currentVersionChangeFilePath } = config;
-  const splitResult: SplitResult = {
+  const splitResult = Object.assign(createSplitResult(), {
     processedFileByMajor: {
       2: resolvePath('123.md'),
       14: resolvePath('456.md'),
       16: resolvePath('789.md'),
     },
-    blankLengthByMajor: {},
-  };
+  });
   await referPreviousChangelog(config, splitResult);
   // 3 个引用链接
   expect(fs.readFileSync(currentVersionChangeFilePath, 'utf8')).toMatchSnapshot();
@@ -98,14 +92,13 @@ test(ChangelogFolder.HasRefVersions, async () => {
     })
   );
   const { resolvePath, currentVersionChangeFilePath } = config;
-  const splitResult: SplitResult = {
+  const splitResult = Object.assign(createSplitResult(), {
     processedFileByMajor: {
       2: resolvePath('123.md'),
       14: resolvePath('456.md'),
       16: resolvePath('789.md'),
     },
-    blankLengthByMajor: {},
-  };
+  });
   await referPreviousChangelog(config, splitResult);
   // 3 个引用链接
   expect(fs.readFileSync(currentVersionChangeFilePath, 'utf8')).toMatchSnapshot();

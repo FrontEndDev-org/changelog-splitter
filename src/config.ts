@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { tryFlatten } from 'try-flatten';
 import { ConfigFault } from './fault';
+import type { SplitInfo } from './splitter';
 import { createTempDirname, matchMajor } from './utils';
 
 export enum ConflictStrategy {
@@ -60,12 +61,12 @@ export interface UserConfig {
   previousVersionLinkTitle?: string;
 
   /**
-   * 版本处理钩子
-   * @param {string} version
-   * @param {string} major
+   * 版本处理回调
+   * @param {string} line
+   * @param {number} progress
    * @returns {any}
    */
-  processVersion?: (version: string, major: string) => any;
+  onProcessing?: (process: SplitInfo) => any;
 }
 
 export type StrictUserConfig = Required<UserConfig>;
@@ -116,7 +117,7 @@ export const defaults: StrictUserConfig = {
   previousVersionChangelogConflictStrategy: ConflictStrategy.ProcessingFile,
   previousVersionChangelogTitle: '# v[major].x 更新日志',
   previousVersionLinkTitle: '## 其他版本的更新日志',
-  processVersion: () => 0,
+  onProcessing: () => 0,
 };
 
 /**

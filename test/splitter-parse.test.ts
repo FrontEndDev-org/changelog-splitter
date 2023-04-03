@@ -3,7 +3,7 @@ import path from 'path';
 import { describe, expect, test } from 'vitest';
 import { defineConfig } from '../src';
 import { ConflictStrategy, createRuntimeConfig } from '../src/config';
-import { splitCurrentChangelog } from '../src/splitter';
+import { parseCurrentChangelog } from '../src/splitter';
 import { ChangelogFolder, makeChangelogCwd, readSplitResultFile } from './helpers';
 
 test(ChangelogFolder.EmptyVersions, async () => {
@@ -14,7 +14,7 @@ test(ChangelogFolder.EmptyVersions, async () => {
     })
   );
   const currentChangelogOrigin = fs.readFileSync(config.currentChangelogFilePath, 'utf8');
-  const result = await splitCurrentChangelog(config);
+  const result = await parseCurrentChangelog(config);
   const currentChangelogNow = fs.readFileSync(config.currentChangelogFilePath, 'utf8');
 
   expect(currentChangelogOrigin).toEqual(currentChangelogNow);
@@ -29,7 +29,7 @@ test(ChangelogFolder.OnlyCurrentVersion, async () => {
     })
   );
   const currentChangelogOrigin = fs.readFileSync(config.currentChangelogFilePath, 'utf8');
-  const result = await splitCurrentChangelog(config);
+  const result = await parseCurrentChangelog(config);
   const currentChangelogNow = fs.readFileSync(config.currentChangelogFilePath, 'utf8');
 
   expect(currentChangelogOrigin).toEqual(currentChangelogNow);
@@ -46,7 +46,7 @@ test(ChangelogFolder.NotCurrentVersion, async () => {
       cwd,
     })
   );
-  const result = await splitCurrentChangelog(config);
+  const result = await parseCurrentChangelog(config);
 
   expect(Object.keys(result.processedFileByMajor).sort()).toEqual(['2', '3']);
   expect(readSplitResultFile(result, '2')).toMatchSnapshot();
@@ -62,7 +62,7 @@ test(ChangelogFolder.HasManyVersions, async () => {
       cwd,
     })
   );
-  const result = await splitCurrentChangelog(config);
+  const result = await parseCurrentChangelog(config);
 
   expect(Object.keys(result.processedFileByMajor).sort()).toEqual(['14', '16', '2']);
   expect(readSplitResultFile(result, '14')).toMatchSnapshot();
@@ -80,7 +80,7 @@ describe(ChangelogFolder.HasRefVersions, () => {
         cwd,
       })
     );
-    const result = await splitCurrentChangelog(config);
+    const result = await parseCurrentChangelog(config);
 
     expect(Object.keys(result.processedFileByMajor).sort()).toEqual(['10', '14', '16', '2', '9']);
     expect(readSplitResultFile(result, '10')).toMatchSnapshot();
@@ -105,7 +105,7 @@ describe(ChangelogFolder.HasRefVersions, () => {
     // [v10.x] => [v14.x]
     const changelog = fs.readFileSync(config.currentChangelogFilePath, 'utf8');
     fs.writeFileSync(config.currentChangelogFilePath, changelog.replace('[v10.x]', '[v14.x]'));
-    const result = await splitCurrentChangelog(config);
+    const result = await parseCurrentChangelog(config);
 
     expect(result.processedFileByMajor[14]).toEqual(path.join(config.cwd, 'changelogs/v14.x-CHANGELOG.md'));
     expect(readSplitResultFile(result, '14')).toMatchSnapshot();
@@ -127,7 +127,7 @@ describe(ChangelogFolder.HasRefVersions, () => {
     // [v10.x] => [v14.x]
     const changelog = fs.readFileSync(config.currentChangelogFilePath, 'utf8');
     fs.writeFileSync(config.currentChangelogFilePath, changelog.replace('[v10.x]', '[v14.x]'));
-    const result = await splitCurrentChangelog(config);
+    const result = await parseCurrentChangelog(config);
 
     expect(result.processedFileByMajor[14]).toEqual(path.join(config.cwd, 'v10-old.md'));
     expect(readSplitResultFile(result, '14')).toMatchSnapshot();
