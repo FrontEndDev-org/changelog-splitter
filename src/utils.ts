@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import readline from 'readline';
 import { pkgName, pkgVersion } from './const';
+import MultiStream from 'multistream';
 
 /**
  * 匹配版本号中的主版本号
@@ -102,9 +103,25 @@ export async function countFileLines(filePath: string): Promise<number> {
  */
 export async function pipeFile(source: string, target: string) {
   return new Promise<void>((resolve, reject) => {
+    if (source === target) return resolve();
+
     const rs = fs.createReadStream(source);
     const ws = fs.createWriteStream(target);
     rs.pipe(ws).on('error', reject).on('close', resolve);
+  });
+}
+
+/**
+ * 合并多个文件
+ * @param {string[]} files
+ * @param {string} target
+ * @returns {Promise<void>}
+ */
+export async function mergeFiles(files: string[], target: string) {
+  return new Promise<void>((resolve, reject) => {
+    const inputs = files.map((file) => fs.createReadStream(file));
+    const output = fs.createWriteStream(target);
+    new MultiStream(inputs).pipe(output).on('error', reject).on('close', resolve);
   });
 }
 
@@ -116,6 +133,18 @@ export function createTempDirname() {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), pkgName, pkgVersion) + '/');
   fs.mkdirSync(d, { recursive: true });
   return d;
+}
+
+/**
+ * 创建临时文件【必存在】
+ * @param {string} data
+ * @returns {string}
+ */
+export function createTempFile(data = '') {
+  const d = createTempDirname();
+  const f = path.join(d, Date.now() + '.tmp');
+  fs.writeFileSync(f, data);
+  return f;
 }
 
 /**

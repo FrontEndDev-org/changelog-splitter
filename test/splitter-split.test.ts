@@ -1,21 +1,17 @@
 import fs from 'fs';
 import path from 'path';
-import { expect, test, describe } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { defineConfig } from '../src';
-import { createRuntimeConfig } from '../src/config';
+import { ConflictStrategy, createRuntimeConfig } from '../src/config';
 import { splitCurrentChangelog, SplitResult } from '../src/splitter';
-import { createTempDirname } from '../src/utils';
 import { ChangelogFolder, makeChangelogCwd } from './helpers';
-
-// test/changelogs
-const testChangelogsPath = path.join(__dirname, 'changelogs');
 
 function readSplitResultFile(splitResult: SplitResult, major: string) {
   return fs.readFileSync(splitResult.processedFileByMajor[major], 'utf8');
 }
 
 test(ChangelogFolder.EmptyVersions, async () => {
-  const cwd = makeChangelogCwd(ChangelogFolder.EmptyVersions);
+  const [cwd, clean] = makeChangelogCwd(ChangelogFolder.EmptyVersions);
   const config = createRuntimeConfig(
     defineConfig({
       cwd,
@@ -30,7 +26,7 @@ test(ChangelogFolder.EmptyVersions, async () => {
 });
 
 test(ChangelogFolder.OnlyCurrentVersion, async () => {
-  const cwd = makeChangelogCwd(ChangelogFolder.OnlyCurrentVersion);
+  const [cwd, clean] = makeChangelogCwd(ChangelogFolder.OnlyCurrentVersion);
   const config = createRuntimeConfig(
     defineConfig({
       cwd,
@@ -43,10 +39,12 @@ test(ChangelogFolder.OnlyCurrentVersion, async () => {
   expect(currentChangelogOrigin).toEqual(currentChangelogNow);
   expect(Object.keys(result.processedFileByMajor)).toEqual(['2']);
   expect(readSplitResultFile(result, '2')).toMatchSnapshot();
+
+  clean();
 });
 
 test(ChangelogFolder.NotCurrentVersion, async () => {
-  const cwd = makeChangelogCwd(ChangelogFolder.NotCurrentVersion);
+  const [cwd, clean] = makeChangelogCwd(ChangelogFolder.NotCurrentVersion);
   const config = createRuntimeConfig(
     defineConfig({
       cwd,
@@ -57,10 +55,12 @@ test(ChangelogFolder.NotCurrentVersion, async () => {
   expect(Object.keys(result.processedFileByMajor).sort()).toEqual(['2', '3']);
   expect(readSplitResultFile(result, '2')).toMatchSnapshot();
   expect(readSplitResultFile(result, '3')).toMatchSnapshot();
+
+  clean();
 });
 
 test(ChangelogFolder.HasManyVersions, async () => {
-  const cwd = makeChangelogCwd(ChangelogFolder.HasManyVersions);
+  const [cwd, clean] = makeChangelogCwd(ChangelogFolder.HasManyVersions);
   const config = createRuntimeConfig(
     defineConfig({
       cwd,
@@ -72,24 +72,67 @@ test(ChangelogFolder.HasManyVersions, async () => {
   expect(readSplitResultFile(result, '14')).toMatchSnapshot();
   expect(readSplitResultFile(result, '16')).toMatchSnapshot();
   expect(readSplitResultFile(result, '2')).toMatchSnapshot();
+
+  clean();
 });
 
-test(ChangelogFolder.HasRefVersions, async () => {
-  const cwd = makeChangelogCwd(ChangelogFolder.HasRefVersions);
-  const config = createRuntimeConfig(
-    defineConfig({
-      cwd,
-    })
-  );
-  const result = await splitCurrentChangelog(config);
+describe(ChangelogFolder.HasRefVersions, () => {
+  test('normal', async () => {
+    const [cwd, clean] = makeChangelogCwd(ChangelogFolder.HasRefVersions);
+    const config = createRuntimeConfig(
+      defineConfig({
+        cwd,
+      })
+    );
+    const result = await splitCurrentChangelog(config);
 
-  expect(Object.keys(result.processedFileByMajor).sort()).toEqual(['10', '14', '16', '2', '9']);
-  expect(readSplitResultFile(result, '10')).toMatchSnapshot();
-  expect(readSplitResultFile(result, '14')).toMatchSnapshot();
-  expect(readSplitResultFile(result, '16')).toMatchSnapshot();
-  expect(readSplitResultFile(result, '2')).toMatchSnapshot();
-  expect(readSplitResultFile(result, '9')).toMatchSnapshot();
+    expect(Object.keys(result.processedFileByMajor).sort()).toEqual(['10', '14', '16', '2', '9']);
+    expect(readSplitResultFile(result, '10')).toMatchSnapshot();
+    expect(readSplitResultFile(result, '14')).toMatchSnapshot();
+    expect(readSplitResultFile(result, '16')).toMatchSnapshot();
+    expect(readSplitResultFile(result, '2')).toMatchSnapshot();
+    expect(readSplitResultFile(result, '9')).toMatchSnapshot();
 
-  expect(result.processedFileByMajor[9]).toEqual(path.join(config.cwd, '123.md'));
-  expect(result.processedFileByMajor[10]).toEqual(path.join(config.cwd, '456.md'));
+    expect(result.processedFileByMajor[9]).toEqual(path.join(config.cwd, 'changelogs/v9.x-CHANGELOG.md'));
+    expect(result.processedFileByMajor[10]).toEqual(path.join(config.cwd, 'changelogs/v10.x-CHANGELOG.md'));
+
+    clean();
+  });
+
+  test('accept processing file [default]', async () => {
+    const [cwd, clean] = makeChangelogCwd(ChangelogFolder.HasRefVersions);
+    const config = createRuntimeConfig(
+      defineConfig({
+        cwd,
+      })
+    );
+    // [v10.x] => [v14.x]
+    const changelog = fs.readFileSync(config.currentChangelogFilePath, 'utf8');
+    fs.writeFileSync(config.currentChangelogFilePath, changelog.replace('[v10.x]', '[v14.x]'));
+    const result = await splitCurrentChangelog(config);
+
+    expect(result.processedFileByMajor[14]).toEqual(path.join(config.cwd, 'changelogs/v14.x-CHANGELOG.md'));
+    expect(readSplitResultFile(result, '14')).toMatchSnapshot();
+
+    clean();
+  });
+
+  test('accept processed file', async () => {
+    const [cwd, clean] = makeChangelogCwd(ChangelogFolder.HasRefVersions);
+    const config = createRuntimeConfig(
+      defineConfig({
+        cwd,
+        previousVersionChangelogConflictStrategy: ConflictStrategy.ProcessedFile,
+      })
+    );
+    // [v10.x] => [v14.x]
+    const changelog = fs.readFileSync(config.currentChangelogFilePath, 'utf8');
+    fs.writeFileSync(config.currentChangelogFilePath, changelog.replace('[v10.x]', '[v14.x]'));
+    const result = await splitCurrentChangelog(config);
+
+    expect(result.processedFileByMajor[14]).toEqual(path.join(config.cwd, '456.md'));
+    expect(readSplitResultFile(result, '14')).toMatchSnapshot();
+
+    clean();
+  });
 });

@@ -2,7 +2,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ConflictStrategy, createRuntimeConfig, RuntimeConfig, StrictUserConfig } from './config';
 import { generatedSeparator, generatedSeparatorRE } from './const';
-import { matchPrevious, matchVersion, pipeFile, readFileLineByLine } from './utils';
+import { SplitFault } from './fault';
+import {
+  createTempFile,
+  generateNameByMajor,
+  matchPrevious,
+  matchVersion,
+  mergeFiles,
+  pipeFile,
+  readFileLineByLine,
+} from './utils';
 
 export interface SplitResult {
   /**
@@ -42,7 +51,7 @@ export async function splitCurrentChangelog(config: RuntimeConfig): Promise<Spli
     const isCurrentMajor = major === currentMajor;
     const filePath = isCurrentMajor
       ? currentVersionChangeTempFilePath
-      : resolvePath(previousVersionChangelogFileName.replace('[major]', major));
+      : resolvePath(generateNameByMajor(previousVersionChangelogFileName, major));
 
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
@@ -57,7 +66,7 @@ export async function splitCurrentChangelog(config: RuntimeConfig): Promise<Spli
 
       // 旧版本标题
       if (previousVersionChangelogTitle) {
-        const titleText = previousVersionChangelogTitle.replace('[major]', major);
+        const titleText = generateNameByMajor(previousVersionChangelogTitle, major);
         fs.appendFileSync(filePath, titleText + '\n\n');
       }
     }
@@ -103,20 +112,40 @@ export async function splitCurrentChangelog(config: RuntimeConfig): Promise<Spli
       // 旧文件
       const processedFile = resolvePath(link);
       // 新文件
-      const processingFile = processedFileByMajor[major] || '';
+      const processingFile =
+        processedFileByMajor[major] || resolvePath(generateNameByMajor(previousVersionChangelogFileName, major));
+      // 是否存在两份旧版本文件
+      const conflicting = processedFile !== processingFile;
 
-      // 存在两份文件
-      if (processingFile) {
-        // 选择旧文件
-        if (previousVersionChangelogConflictStrategy === ConflictStrategy.ProcessedFile) {
-          processedFileByMajor[major] = processedFile;
-        }
-        // 选项新文件
-        else {
-          // processedFileByMajor[previous.major] = '';
-        }
+      if (!conflicting) return;
+
+      const existProcessingFile = fs.existsSync(processingFile);
+      const existProcessedFile = fs.existsSync(processedFile);
+
+      // 新旧文件同时存在：合并文件
+      const acceptedFile =
+        previousVersionChangelogConflictStrategy === ConflictStrategy.ProcessedFile
+          ? (processedFileByMajor[major] = processedFile)
+          : (processedFileByMajor[major] = processingFile);
+
+      if (existProcessingFile && existProcessedFile) {
+        const tempFile = createTempFile();
+        await mergeFiles(
+          [
+            // 旧文件在前
+            processedFile,
+            // 新文件在后
+            processingFile,
+          ],
+          tempFile
+        );
+        await pipeFile(tempFile, acceptedFile);
+      }
+      // 只有旧文件
+      else if (existProcessedFile) {
+        await pipeFile(processedFile, acceptedFile);
       } else {
-        processedFileByMajor[major] = processedFile;
+        throw new SplitFault('LINK_CHANGELOG_NOT_FOUND', `链接的更新日志文件不存在 ${processedFile}`);
       }
 
       return;

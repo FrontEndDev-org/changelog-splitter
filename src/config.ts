@@ -38,7 +38,7 @@ export interface UserConfig {
 
   /**
    * 其他版本更新日志的文件名，可以使用 `[major]` 表示大版本号
-   * @default "changelogs/v[major].x.md"
+   * @default "changelogs/v[major].x-CHANGELOG.md"
    */
   previousVersionChangelogFileName?: string;
 
@@ -112,7 +112,7 @@ export const defaults: StrictUserConfig = {
   currentChangelogFile: 'CHANGELOG.md',
   currentVersionChangeFileName: 'CHANGELOG.md',
   packageFile: 'package.json',
-  previousVersionChangelogFileName: 'changelogs/v[major].x.md',
+  previousVersionChangelogFileName: 'changelogs/v[major].x-CHANGELOG.md',
   previousVersionChangelogConflictStrategy: ConflictStrategy.ProcessingFile,
   previousVersionChangelogTitle: '# v[major].x 更新日志',
   previousVersionLinkTitle: '## 其他版本的更新日志',

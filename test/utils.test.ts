@@ -4,14 +4,16 @@ import { expect, test } from 'vitest';
 import {
   countFileLines,
   createTempDirname,
+  createTempFile,
   generateNameByMajor,
   matchMajor,
   matchPrevious,
   matchVersion,
+  mergeFiles,
   pipeFile,
   readFileLineByLine,
 } from '../src/utils';
-import { createTempFile } from './helpers';
+import { makeTempFile } from './helpers';
 
 test('matchMajor', () => {
   expect(matchMajor('0')).toEqual('0');
@@ -81,13 +83,26 @@ test('createTempDirname', () => {
   expect(fs.existsSync(d)).toBeTruthy();
 });
 
+test('createTempFile', () => {
+  const f1 = createTempFile();
+  expect(fs.readFileSync(f1, 'utf8')).toEqual('');
+
+  const f2 = createTempFile('1');
+  expect(fs.readFileSync(f2, 'utf8')).toEqual('1');
+
+  expect(f1).not.toEqual(f2);
+
+  fs.rmSync(f1);
+  fs.rmSync(f2);
+});
+
 test('readFileLineByLine', async () => {
   const length = Math.floor(Math.random() * 50) + 10;
   const content = new Array(length)
     .fill('')
     .map((_, n) => `${n}`)
     .join('\n');
-  const [file, clean] = createTempFile(content);
+  const [file, clean] = makeTempFile(content);
   const lines: string[] = [];
   await readFileLineByLine(file, async (line) => {
     await Promise.resolve();
@@ -101,7 +116,7 @@ test('readFileLineByLine', async () => {
 test('countFileLines', async () => {
   const length = Math.floor(Math.random() * 50) + 10;
   const content = '\n'.repeat(length);
-  const [file, clean] = createTempFile(content);
+  const [file, clean] = makeTempFile(content);
   const count = await countFileLines(file);
   expect(count).toEqual(length);
   clean();
@@ -110,30 +125,84 @@ test('countFileLines', async () => {
 test('pipeFile', async () => {
   const length = Math.floor(Math.random() * 50) + 10;
   const content = '\n'.repeat(length);
-  const [source, clean1] = createTempFile(content);
-  const [target, clean2] = createTempFile();
+
+  const [source, clean1] = makeTempFile(content);
+  const [target, clean2] = makeTempFile();
+
   await pipeFile(source, target);
+
   const st1 = fs.statSync(source);
   const st2 = fs.statSync(target);
+
   expect(st1.size).toEqual(st2.size);
+
   clean1();
   clean2();
 });
 
 test('pipeFile exitFile', async () => {
   const length = Math.floor(Math.random() * 50) + 10;
+
   const content1 = '1\n'.repeat(length);
   const content2 = '2\n'.repeat(length);
-  const [source, clean1] = createTempFile(content1);
-  const [target, clean2] = createTempFile(content2);
+
+  const [source, clean1] = makeTempFile(content1);
+  const [target, clean2] = makeTempFile(content2);
+
   await pipeFile(source, target);
+
   const st1 = fs.statSync(source);
   const st2 = fs.statSync(target);
+
   expect(st1.size).toEqual(st2.size);
+
   clean1();
   clean2();
 });
 
+test('pipeFile not exitFile', async () => {
+  const length = Math.floor(Math.random() * 50) + 10;
+
+  const content1 = '1\n'.repeat(length);
+
+  const [source, clean1] = makeTempFile(content1);
+  const target = path.join(createTempDirname(), Date.now() + '.txt');
+
+  await pipeFile(source, target);
+
+  const st1 = fs.statSync(source);
+  const st2 = fs.statSync(target);
+
+  expect(st1.size).toEqual(st2.size);
+
+  clean1();
+  fs.rmSync(target);
+});
+
+test('pipeFile same file', async () => {
+  const data = Date.now().toString();
+  const [source, clean] = makeTempFile(data);
+
+  await pipeFile(source, source);
+
+  expect(fs.readFileSync(source, 'utf8')).toEqual(data);
+
+  clean();
+});
+
 test('generateNameByMajor', () => {
   expect(generateNameByMajor('1-[major]-[major]-3', '2')).toEqual('1-2-2-3');
+});
+
+test('mergeFiles', async () => {
+  const t1 = '1\n2\n';
+  const [f1, c1] = makeTempFile(t1);
+  const t2 = '3\n4\n';
+  const [f2, c2] = makeTempFile(t2);
+  const [f3, c3, r3] = makeTempFile();
+  await mergeFiles([f1, f2], f3);
+  expect(r3()).toEqual(t1 + t2);
+  c1();
+  c2();
+  c3();
 });
