@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import readline from 'readline';
+import * as crypto from 'crypto';
 import { pkgName, pkgVersion } from './const';
 import MultiStream from 'multistream';
 
@@ -130,7 +131,7 @@ export async function mergeFiles(files: string[], target: string) {
  * @returns {string}
  */
 export function createTempDirname() {
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), pkgName, pkgVersion) + '/');
+  const d = path.join(os.tmpdir(), pkgName, pkgVersion, crypto.randomUUID() + '.d');
   fs.mkdirSync(d, { recursive: true });
   return d;
 }
@@ -142,7 +143,7 @@ export function createTempDirname() {
  */
 export function createTempFile(data = '') {
   const d = createTempDirname();
-  const f = path.join(d, Date.now() + '.tmp');
+  const f = path.join(d, crypto.randomUUID() + '.f');
   fs.writeFileSync(f, data);
   return f;
 }
