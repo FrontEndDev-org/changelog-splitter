@@ -4,6 +4,7 @@ import { describe, expect, test } from 'vitest';
 import { defineConfig } from '../src';
 import { ConflictStrategy, createRuntimeConfig } from '../src/config';
 import { parseCurrentChangelog } from '../src/splitter';
+import { versionListSort } from '../src/utils';
 import { ChangelogFolder, makeChangelogCwd, readSplitResultFile } from './helpers';
 
 test(ChangelogFolder.EmptyVersions, async () => {
@@ -48,7 +49,7 @@ test(ChangelogFolder.NotCurrentVersion, async () => {
   );
   const result = await parseCurrentChangelog(config);
 
-  expect(Object.keys(result.processedFileByMajor).sort()).toEqual(['2', '3']);
+  expect(versionListSort(Object.keys(result.processedFileByMajor))).toEqual(['2', '3']);
   expect(readSplitResultFile(result, '2')).toMatchSnapshot();
   expect(readSplitResultFile(result, '3')).toMatchSnapshot();
 
@@ -64,7 +65,7 @@ test(ChangelogFolder.HasManyVersions, async () => {
   );
   const result = await parseCurrentChangelog(config);
 
-  expect(Object.keys(result.processedFileByMajor).sort()).toEqual(['14', '16', '2']);
+  expect(versionListSort(Object.keys(result.processedFileByMajor))).toEqual(['2', '14', '16']);
   expect(readSplitResultFile(result, '14')).toMatchSnapshot();
   expect(readSplitResultFile(result, '16')).toMatchSnapshot();
   expect(readSplitResultFile(result, '2')).toMatchSnapshot();
@@ -82,7 +83,7 @@ describe(ChangelogFolder.HasRefVersions, () => {
     );
     const result = await parseCurrentChangelog(config);
 
-    expect(Object.keys(result.processedFileByMajor).sort()).toEqual(['10', '14', '16', '2', '9']);
+    expect(versionListSort(Object.keys(result.processedFileByMajor))).toEqual(['2', '9', '10', '14', '16']);
     expect(readSplitResultFile(result, '10')).toMatchSnapshot();
     expect(readSplitResultFile(result, '14')).toMatchSnapshot();
     expect(readSplitResultFile(result, '16')).toMatchSnapshot();
@@ -132,6 +133,22 @@ describe(ChangelogFolder.HasRefVersions, () => {
     expect(result.processedFileByMajor[14]).toEqual(path.join(config.cwd, 'v10-old.md'));
     expect(readSplitResultFile(result, '14')).toMatchSnapshot();
     expect(Object.keys(result.deprecatedMajorFiles)).toEqual([]);
+
+    clean();
+  });
+
+  test('no conflicting', async () => {
+    const [cwd, clean] = makeChangelogCwd(ChangelogFolder.HasRefVersions);
+    const config = createRuntimeConfig(
+      defineConfig({
+        cwd,
+        previousVersionChangelogFileName: 'v[major]-old.md',
+      })
+    );
+
+    const result = await parseCurrentChangelog(config);
+
+    expect(versionListSort(Object.keys(result.processedFileByMajor))).toEqual(['2', '9', '10', '14', '16']);
 
     clean();
   });

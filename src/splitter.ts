@@ -13,6 +13,7 @@ import {
   mergeFiles,
   pipeFile,
   readFileLineByLine,
+  versionListSort,
 } from './utils';
 
 export enum SplitProcessingStage {
@@ -230,10 +231,7 @@ export async function referPreviousChangelog(
     runtimeConfig;
 
   const { processedFileByMajor, blankLengthByMajor } = splitContext;
-  const prevVersions = Object.keys(processedFileByMajor)
-    .filter((v) => v !== currentMajor)
-    .map((v) => parseInt(v, 10))
-    .sort((a, b) => b - a);
+  const prevVersions = versionListSort(Object.keys(processedFileByMajor).filter((v) => v !== currentMajor));
 
   // 需要链接其他版本
   const count = prevVersions.length;
