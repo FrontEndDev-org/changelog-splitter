@@ -157,3 +157,28 @@ export function createTempFile(data = '') {
 export function generateNameByMajor(templateName: string, major: string) {
   return templateName.replace(/\[major]/g, major);
 }
+
+/**
+ * 版本号排序
+ * @param {string[]} versionList
+ * @param desc
+ * @returns {string[]}
+ */
+export function versionListSort(versionList: string[], desc = false) {
+  return versionList.sort((a, b) => {
+    const av = a.replace(/^\D+/, '').split('.');
+    const bv = b.replace(/^\D+/, '').split('.');
+    const length = Math.max(av.length, bv.length);
+
+    for (let i = 0; i < length; i++) {
+      const a = parseInt(av[i] || '0', 10);
+      const b = parseInt(bv[i] || '0', 10);
+
+      if (a === b) continue;
+
+      return desc ? b - a : a - b;
+    }
+
+    return 0;
+  });
+}

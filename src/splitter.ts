@@ -13,6 +13,7 @@ import {
   mergeFiles,
   pipeFile,
   readFileLineByLine,
+  versionListSort,
 } from './utils';
 
 export enum SplitProcessingStage {
@@ -158,7 +159,10 @@ export async function parseCurrentChangelog(
       // 是否存在两份旧版本文件
       const conflicting = processedFile !== processingFile;
 
-      if (!conflicting) return;
+      if (!conflicting) {
+        processedFileByMajor[major] = processingFile;
+        return;
+      }
 
       const existProcessingFile = fs.existsSync(processingFile);
       const existProcessedFile = fs.existsSync(processedFile);
@@ -230,10 +234,10 @@ export async function referPreviousChangelog(
     runtimeConfig;
 
   const { processedFileByMajor, blankLengthByMajor } = splitContext;
-  const prevVersions = Object.keys(processedFileByMajor)
-    .filter((v) => v !== currentMajor)
-    .map((v) => parseInt(v, 10))
-    .sort((a, b) => b - a);
+  const prevVersions = versionListSort(
+    Object.keys(processedFileByMajor).filter((v) => v !== currentMajor),
+    true
+  );
 
   // 需要链接其他版本
   const count = prevVersions.length;

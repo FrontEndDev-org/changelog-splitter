@@ -12,6 +12,7 @@ import {
   mergeFiles,
   pipeFile,
   readFileLineByLine,
+  versionListSort,
 } from '../src/utils';
 import { makeTempFile } from './helpers';
 
@@ -205,4 +206,10 @@ test('mergeFiles', async () => {
   c1();
   c2();
   c3();
+});
+
+test('versionListSort', () => {
+  expect(versionListSort(['2.0.0', '1.2.3', '1.2.4', '2.1.1'])).toEqual(['1.2.3', '1.2.4', '2.0.0', '2.1.1']);
+  expect(versionListSort(['2.0.0', '1.2.3', '1.2.4', '2.1.1'], true)).toEqual(['2.1.1', '2.0.0', '1.2.4', '1.2.3']);
+  expect(versionListSort(['2', '2.1'], true)).toEqual(['2.1', '2']);
 });
