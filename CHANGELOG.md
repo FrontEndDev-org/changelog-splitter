@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/FrontEndDev-org/changelog-splitter/compare/v1.0.0...v1.0.1) (2023-04-04)
+
+
+### Bug Fixes
+
+* 修复处理已存在版本链接且无冲突时未保留的问题 ([666b195](https://github.com/FrontEndDev-org/changelog-splitter/commit/666b1952232cff20e2d8ed0404eff9b211b5da12))
+* 其他版本号链接排序倒序 ([1c59e5a](https://github.com/FrontEndDev-org/changelog-splitter/commit/1c59e5a77d5106943f3d831b3605ae0bc3a16bf2))
+
 ## 1.0.0 (2023-04-04)
 
 

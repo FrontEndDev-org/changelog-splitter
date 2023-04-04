@@ -1,6 +1,6 @@
 {
   "name": "changelog-splitter",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "✂️ conventional commit changelog markdown splitter 约定式提交更新日志 markdown 切割器",
   "scripts": {
     "prepare": "husky install",
