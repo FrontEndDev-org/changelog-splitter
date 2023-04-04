@@ -9,10 +9,7 @@ test('full test', async () => {
   const { splitContext, runtimeConfig } = await splitChangelog(
     defineConfig({
       cwd,
-    }),
-    (processing) => {
-      console.log(processing);
-    }
+    })
   );
 
   expect(fs.readFileSync(runtimeConfig.currentVersionChangeFilePath, 'utf8')).toMatchSnapshot();

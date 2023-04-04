@@ -199,15 +199,15 @@ export async function parseCurrentChangelog(
     // 版本开始
     if (version) {
       processingMajor = version.major;
-      process(processingMajor, line);
+      await process(processingMajor, line);
     }
     // 版本区
     else if (processingMajor) {
-      process(processingMajor, line);
+      await process(processingMajor, line);
     }
     // 标题块
     else {
-      process(currentMajor, line);
+      await process(currentMajor, line);
     }
   });
 
