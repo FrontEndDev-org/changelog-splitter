@@ -234,7 +234,10 @@ export async function referPreviousChangelog(
     runtimeConfig;
 
   const { processedFileByMajor, blankLengthByMajor } = splitContext;
-  const prevVersions = versionListSort(Object.keys(processedFileByMajor).filter((v) => v !== currentMajor));
+  const prevVersions = versionListSort(
+    Object.keys(processedFileByMajor).filter((v) => v !== currentMajor),
+    true
+  );
 
   // 需要链接其他版本
   const count = prevVersions.length;
