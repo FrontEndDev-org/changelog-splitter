@@ -8,6 +8,10 @@ export class Printer {
     removeFiles: new Set<string>(),
   };
 
+  static insertSymbol = chalk.cyanBright('+');
+  static updateSymbol = chalk.yellowBright('~');
+  static removeSymbol = chalk.redBright('-');
+
   constructor(private readonly cwd: string) {}
 
   private toRelative(to: string) {
@@ -17,21 +21,21 @@ export class Printer {
   insertFile(file: string) {
     if (this.counts.insertFiles.has(file)) return;
 
-    console.log(chalk.cyanBright('+'), this.toRelative(file));
+    console.log(Printer.insertSymbol, this.toRelative(file));
     this.counts.insertFiles.add(file);
   }
 
   updateFile(file: string) {
     if (this.counts.updateFiles.has(file)) return;
 
-    console.log(chalk.yellowBright('~'), this.toRelative(file));
+    console.log(Printer.updateSymbol, this.toRelative(file));
     this.counts.updateFiles.add(file);
   }
 
   removeFile(file: string) {
     if (this.counts.removeFiles.has(file)) return;
 
-    console.log(chalk.redBright('-'), this.toRelative(file));
+    console.log(Printer.removeSymbol, this.toRelative(file));
     this.counts.removeFiles.add(file);
   }
 }

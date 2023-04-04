@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { ConflictStrategy, createRuntimeConfig, RuntimeConfig, StrictUserConfig } from './config';
 import { generatedSeparator, generatedSeparatorRE } from './const';
@@ -14,17 +15,19 @@ import {
   readFileLineByLine,
 } from './utils';
 
-export enum SplitStage {
+export enum SplitProcessingStage {
   Parse,
   Refer,
 }
 
-export interface SplitInfo {
-  stage: SplitStage;
+export interface SplitProcessing {
+  stage: SplitProcessingStage;
   progress: number;
 }
 
-export interface SplitResult {
+export type OnProcessing = (processing: SplitProcessing) => void;
+
+export interface SplitContext {
   /**
    * 已经处理的主版本号与文件的映射表
    */
@@ -41,7 +44,12 @@ export interface SplitResult {
   deprecatedMajorFiles: { [major: string]: string };
 }
 
-export function createSplitResult(): SplitResult {
+export interface SplitResult {
+  splitContext: SplitContext;
+  runtimeConfig: RuntimeConfig;
+}
+
+export function createSplitContext(): SplitContext {
   return {
     processedFileByMajor: {},
     blankLengthByMajor: {},
@@ -52,9 +60,13 @@ export function createSplitResult(): SplitResult {
 /**
  * 分离当前更新日志
  * @param {RuntimeConfig} runtimeConfig
- * @returns {Promise<void>}
+ * @param {OnProcessing} [onProcessing]
+ * @returns {Promise<SplitContext>}
  */
-export async function parseCurrentChangelog(runtimeConfig: RuntimeConfig): Promise<SplitResult> {
+export async function parseCurrentChangelog(
+  runtimeConfig: RuntimeConfig,
+  onProcessing?: OnProcessing
+): Promise<SplitContext> {
   const {
     previousVersionChangelogTitle,
     previousVersionChangelogFileName,
@@ -63,33 +75,32 @@ export async function parseCurrentChangelog(runtimeConfig: RuntimeConfig): Promi
     currentChangelogFilePath,
     currentMajor,
     currentVersionChangeTempFilePath,
-    onProcessing,
   } = runtimeConfig;
 
-  const splitResult = createSplitResult();
-  const { processedFileByMajor, blankLengthByMajor, deprecatedMajorFiles } = splitResult;
+  const splitContext = createSplitContext();
+  const { processedFileByMajor, blankLengthByMajor, deprecatedMajorFiles } = splitContext;
 
-  const process = (major: string, line: string) => {
+  const process = async (major: string, line: string) => {
     const isCurrentMajor = major === currentMajor;
     const filePath = isCurrentMajor
       ? currentVersionChangeTempFilePath
       : resolvePath(generateNameByMajor(previousVersionChangelogFileName, major));
 
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    await fsp.mkdir(path.dirname(filePath), { recursive: true });
 
     // 第一次处理，清空其本身内容
     if (!processedFileByMajor[major]) {
-      fs.writeFileSync(filePath, '');
+      await fsp.writeFile(filePath, '');
     }
 
     // 未处理过的大版本 && 不是当前版本 = 第一次处理旧版本更新日志
     if (!processedFileByMajor[major] && !isCurrentMajor) {
-      fs.writeFileSync(filePath, `${generatedSeparator}\n\n`);
+      await fsp.writeFile(filePath, `${generatedSeparator}\n\n`);
 
       // 旧版本标题
       if (previousVersionChangelogTitle) {
         const titleText = generateNameByMajor(previousVersionChangelogTitle, major);
-        fs.appendFileSync(filePath, titleText + '\n\n');
+        await fsp.appendFile(filePath, titleText + '\n\n');
       }
     }
 
@@ -97,7 +108,7 @@ export async function parseCurrentChangelog(runtimeConfig: RuntimeConfig): Promi
     const isBlank = line.trim() === '';
 
     if (blankLength < 3 || !isBlank) {
-      fs.appendFileSync(filePath, line + '\n');
+      await fsp.appendFile(filePath, line + '\n');
     }
 
     blankLengthByMajor[major] = isBlank ? blankLength + 1 : 0;
@@ -119,8 +130,8 @@ export async function parseCurrentChangelog(runtimeConfig: RuntimeConfig): Promi
   let lines = 0;
   await readFileLineByLine(currentChangelogFilePath, async (line) => {
     lines++;
-    onProcessing({
-      stage: SplitStage.Parse,
+    onProcessing?.({
+      stage: SplitProcessingStage.Parse,
       progress: lines / count,
     });
 
@@ -200,24 +211,25 @@ export async function parseCurrentChangelog(runtimeConfig: RuntimeConfig): Promi
     }
   });
 
-  return splitResult;
+  return splitContext;
 }
 
 /**
  * 引用之前的更新日志链接
  * @param {RuntimeConfig} runtimeConfig
- * @param {SplitResult} splitResult
+ * @param {SplitContext} splitContext
+ * @param {OnProcessing} onProcessing
+ * @returns {Promise<void>}
  */
-export async function referPreviousChangelog(runtimeConfig: RuntimeConfig, splitResult: SplitResult) {
-  const {
-    currentVersionChangeTempFilePath,
-    currentMajor,
-    previousVersionLinkTitle,
-    currentVersionChangeFilePath,
-    onProcessing,
-  } = runtimeConfig;
+export async function referPreviousChangelog(
+  runtimeConfig: RuntimeConfig,
+  splitContext: SplitContext,
+  onProcessing?: OnProcessing
+) {
+  const { currentVersionChangeTempFilePath, currentMajor, previousVersionLinkTitle, currentVersionChangeFilePath } =
+    runtimeConfig;
 
-  const { processedFileByMajor, blankLengthByMajor } = splitResult;
+  const { processedFileByMajor, blankLengthByMajor } = splitContext;
   const prevVersions = Object.keys(processedFileByMajor)
     .filter((v) => v !== currentMajor)
     .map((v) => parseInt(v, 10))
@@ -228,47 +240,50 @@ export async function referPreviousChangelog(runtimeConfig: RuntimeConfig, split
   if (count > 0) {
     // 通常是存在的，为了便于单元测试时不存在
     if (!fs.existsSync(currentVersionChangeTempFilePath)) {
-      fs.mkdirSync(path.dirname(currentVersionChangeTempFilePath), { recursive: true });
+      await fsp.mkdir(path.dirname(currentVersionChangeTempFilePath), { recursive: true });
     }
 
     if (!blankLengthByMajor[currentMajor]) {
-      fs.appendFileSync(currentVersionChangeTempFilePath, `\n\n`);
+      await fsp.appendFile(currentVersionChangeTempFilePath, `\n\n`);
     }
 
-    fs.appendFileSync(currentVersionChangeTempFilePath, `${generatedSeparator}\n\n`);
-    fs.appendFileSync(currentVersionChangeTempFilePath, `${previousVersionLinkTitle}\n`);
+    await fsp.appendFile(currentVersionChangeTempFilePath, `${generatedSeparator}\n\n`);
+    await fsp.appendFile(currentVersionChangeTempFilePath, `${previousVersionLinkTitle}\n`);
 
     const currentDir = path.dirname(currentVersionChangeFilePath);
-    prevVersions.forEach((v, index) => {
-      onProcessing({
-        stage: SplitStage.Refer,
+    for (const v of prevVersions) {
+      const index = prevVersions.indexOf(v);
+      onProcessing?.({
+        stage: SplitProcessingStage.Refer,
         progress: (index + 1) / count,
       });
 
       const filePath = processedFileByMajor[v];
       const relativePath = path.relative(currentDir, filePath);
-      fs.appendFileSync(currentVersionChangeTempFilePath, `- [v${v}.x](${relativePath})\n`);
-    });
+      await fsp.appendFile(currentVersionChangeTempFilePath, `- [v${v}.x](${relativePath})\n`);
+    }
 
-    fs.appendFileSync(currentVersionChangeTempFilePath, '\n');
+    await fsp.appendFile(currentVersionChangeTempFilePath, '\n');
   }
 
   // 通常是存在的，为了便于单元测试时不存在
   if (fs.existsSync(currentVersionChangeTempFilePath)) {
     // 复制当前大版本的更新日志临时文件回原地
     await pipeFile(currentVersionChangeTempFilePath, currentVersionChangeFilePath);
-    fs.rmSync(currentVersionChangeTempFilePath);
+    await fsp.rm(currentVersionChangeTempFilePath);
   }
 }
 
 /**
  * 切割更新日志
  * @param {StrictUserConfig} config
- * @returns {Promise<{result: SplitResult, runtimeConfig: StrictUserConfig & ExtendConfig}>}
+ * @param {StrictUserConfig} config
+ * @param {OnProcessing} [onProcessing]
+ * @returns {Promise<SplitResult>}
  */
-export async function splitChangelog(config: StrictUserConfig) {
+export async function splitChangelog(config: StrictUserConfig, onProcessing?: OnProcessing): Promise<SplitResult> {
   const runtimeConfig = createRuntimeConfig(config);
-  const result = await parseCurrentChangelog(runtimeConfig);
-  await referPreviousChangelog(runtimeConfig, result);
-  return { result, runtimeConfig };
+  const splitContext = await parseCurrentChangelog(runtimeConfig, onProcessing);
+  await referPreviousChangelog(runtimeConfig, splitContext, onProcessing);
+  return { splitContext, runtimeConfig };
 }

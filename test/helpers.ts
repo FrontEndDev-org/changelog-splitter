@@ -1,6 +1,6 @@
 import fs from 'fs';
 import * as path from 'path';
-import { SplitResult } from '../src/splitter';
+import { SplitContext } from '../src/splitter';
 import { createTempDirname, createTempFile } from '../src/utils';
 
 /**
@@ -48,6 +48,6 @@ export function makeChangelogCwd(folder: ChangelogFolder) {
   ] as const;
 }
 
-export function readSplitResultFile(splitResult: SplitResult, major: string) {
+export function readSplitResultFile(splitResult: SplitContext, major: string) {
   return fs.readFileSync(splitResult.processedFileByMajor[major], 'utf8');
 }
